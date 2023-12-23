@@ -1,0 +1,32 @@
+#!/usr/bin/env raku
+
+use Spreadsheet::XLSX;
+
+my $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/foo.xlsx';
+
+# Create a new workbook and add some worksheets to it.
+my $workbook = Spreadsheet::XLSX.new;
+my $sheet-a = $workbook.create-worksheet('Ingredients');
+my $sheet-b = $workbook.create-worksheet('Matching Drinks');
+
+# Put some data into a worksheet and style it. This is how the model
+# actually works (useful if you want to add styles later).
+$sheet-a.cells[0;0] = Spreadsheet::XLSX::Cell::Text.new(value => 'Ingredient');
+$sheet-a.cells[0;0].style.bold = True;
+$sheet-a.cells[0;1] = Spreadsheet::XLSX::Cell::Text.new(value => 'Quantity');
+$sheet-a.cells[0;1].style.bold = True;
+$sheet-a.cells[1;0] = Spreadsheet::XLSX::Cell::Text.new(value => 'Eggs');
+$sheet-a.cells[1;1] = Spreadsheet::XLSX::Cell::Number.new(value => 6);
+$sheet-a.cells[1;1].style.number-format = '#,###';
+
+# However, there is a convenience form too.
+$sheet-b.set(0, 0, 'Ingredient', :bold);
+$sheet-b.set(0, 1, 'Quantity', :bold);
+$sheet-b.set(1, 0, 'Cheese Slices');
+$sheet-b.set(1, 1, 4, :number-format('#,###'));
+
+# Save it to a file (string or IO::Path name).
+$workbook.save($outfile);
+
+# Or get it as a blob, e.g. for a HTTP response.
+#my $blob = $workbook.to-blob();
