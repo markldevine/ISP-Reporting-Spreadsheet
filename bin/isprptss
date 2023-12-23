@@ -4,6 +4,11 @@ use Spreadsheet::XLSX;
 
 my $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/foo.xlsx';
 
+sub MAIN (
+    Str:D   :$isp-server,                           #= ISP server name
+    Str:D   :$isp-admin,                            #= ISP server admin
+) {
+
 # Create a new workbook and add some worksheets to it.
 my $workbook = Spreadsheet::XLSX.new;
 my $sheet-a = $workbook.create-worksheet('Ingredients');
@@ -30,3 +35,6 @@ $workbook.save($outfile);
 
 # Or get it as a blob, e.g. for a HTTP response.
 #my $blob = $workbook.to-blob();
+}
+
+=finish
