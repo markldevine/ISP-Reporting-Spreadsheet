@@ -77,8 +77,8 @@ my @isp-servers     = <ISPLC01 ISPLC02 JATSMPRD02 P520TSMJGB CATSMDEV01>;
 
 my $outfile;
 given $ = run(<uname -n>, :out).out.slurp.chomp {
-    when 'L-707970' { $outfile = '/mnt/c/Users/E028441/Downloads/IBM/ISP/Reporting/foo.xlsx';   }
-    when 'W-608863' { $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/foo.xlsx';                 }
+    when 'L-707970' { $outfile = '/mnt/c/Users/E028441/Downloads/IBM/ISP/Reporting/ISP Reporting.xlsx';   }
+    when 'W-608863' { $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/ISP Reporting.xlsx';                 }
     default         { die;                                                                      }
 }
 
@@ -137,14 +137,8 @@ sub MAIN (
 ###     Output Excel                                                         ###
 ################################################################################
 
-#   for %data.keys.sort -> $isp-server {
-#       printf "\n%-40s%-70s%-20s%s\n", 'NODE NAME', 'BUSINESS UNIT', 'GB', $isp-server;
-#       printf "%-40s%-70s%s\n", '-' x 'NODE NAME'.chars, '-' x 'BUSINESS UNIT'.chars, '-' x 'GB'.chars;
-#       for %data{$isp-server}.keys.sort -> $node-name {
-#           next unless %data{$isp-server}{$node-name}<BU> && %data{$isp-server}{$node-name}<GB>;
-#           printf "%-40s%-70s%s\n", $node-name, %data{$isp-server}{$node-name}<BU>, %data{$isp-server}{$node-name}<GB>;
-#       }
-#   }
+    my $workbook    = Spreadsheet::XLSX.new;
+    my $sheet;
 
     for %data.keys.sort -> $isp-server {
         for %data{$isp-server}.keys.sort -> $node-name {
@@ -153,52 +147,22 @@ sub MAIN (
         }
     }
 #ddt %BU2GB;
-    my @records = %BU2GB.keys.sort;
+    my @records     = %BU2GB.keys.sort;
 
+    $sheet = $workbook.create-worksheet('By BU');
+    $sheet.cells[0;0] = Spreadsheet::XLSX::Cell::Text.new(value => 'BUSINESS UNIT');
+    $sheet.cells[0;0].style.bold = True;
+    $sheet.cells[0;1] = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
+    $sheet.cells[0;1].style.bold = True;
     printf "%-20s%s\n", 'BUSINESS UNIT', 'GB';
     loop (my $i = 0; $i < @records.elems; $i++) {
         printf "%-20s%.2f\n", @records[$i], +%BU2GB{@records[$i]};
+        $sheet.cells[$i+1;0] = Spreadsheet::XLSX::Cell::Text.new(value => @records[$i]);
+        $sheet.cells[$i+1;1] = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@records[$i]}.Str);
+#       $sheet.cells[$i+1;1].style.number-format = '#,###';
     }
-}
 
-
-=finish
-
-{3} @0
-    ISPLC01 => {223} @1
-        AIXTEST => {2} @2
-            BU => DCI_Unix.Str
-            GB => 74.56.Str
-
-
-# Create a new workbook and add some worksheets to it.
-my $workbook = Spreadsheet::XLSX.new;
-my $sheet;
-for %data.keys -> $isp-server {
-    $sheet = $workbook.create-worksheet($isp-server);
-
-# Put some data into a worksheet and style it. This is how the model
-# actually works (useful if you want to add styles later).
-$sheet-a.cells[0;0] = Spreadsheet::XLSX::Cell::Text.new(value => 'Ingredient');
-$sheet-a.cells[0;0].style.bold = True;
-$sheet-a.cells[0;1] = Spreadsheet::XLSX::Cell::Text.new(value => 'Quantity');
-$sheet-a.cells[0;1].style.bold = True;
-$sheet-a.cells[1;0] = Spreadsheet::XLSX::Cell::Text.new(value => 'Eggs');
-$sheet-a.cells[1;1] = Spreadsheet::XLSX::Cell::Number.new(value => 6);
-$sheet-a.cells[1;1].style.number-format = '#,###';
-
-# However, there is a convenience form too.
-
-$sheet-b.set(0, 0, 'Ingredient', :bold);
-$sheet-b.set(0, 1, 'Quantity', :bold);
-$sheet-b.set(1, 0, 'Cheese Slices');
-$sheet-b.set(1, 1, 4, :number-format('#,###'));
-
-# Save it to a file (string or IO::Path name).
-$workbook.save($outfile);
-
-# Or get it as a blob, e.g. for a HTTP response.
-#my $blob = $workbook.to-blob();
+    $workbook.save($outfile);
 }
 
 =finish
