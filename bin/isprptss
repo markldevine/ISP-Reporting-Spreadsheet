@@ -4,8 +4,76 @@ use Spreadsheet::XLSX;
 use ISP::dsmadmc;
 use Data::Dump::Tree;
 
+my %ISPLC02-inc     = (
+                        ISPLC02                     => 0,
+                      );
+
+my %JATSMPRD02-inc  = (
+                        CTSPSDB01SV                 => 0,
+                        JADBCGNPRD01-GISPRD1-TDP    => 0,
+                        JADBCGNPRD01-GISRPRD1-TDP   => 0,
+                        JGCOUNDBLB01WPV             => 0,
+                        JGMTDB01LPV-TKCSPROD-TDP    => 0,
+                        JGOHAWDB01PV                => 0,
+                        JGOHAWDB02PV                => 0,
+                        P590A1-ITRPPRD1-TDP         => 0,
+                        P590A1-PDBX-TDP             => 0,
+                        P590A1-STATPROD-TDP         => 0,
+                        P590A1-TASPRD1-TDP          => 0,
+                        P590A1-TTRPPROD-TDP         => 0,
+                        P590A10-NBUSPRD1-TDP        => 0,
+                        P590A10-TDBPRD3-TDP         => 0,
+                        P595A13-OEMPROD-TDP         => 0,
+                        P770A21-EFTPRD1-TDP         => 0,
+                        P770A21-SBFTPRD1-TDP        => 0,
+                        P770A21-WMTPRD1-TDP         => 0,
+                        SMB_DCI_SQL_BACKUPS         => 0,
+                      );
+
+my %CATSMDEV01-inc  = (
+                        CADBFAREDR21-SBFTPRD1-TDP   => 0,
+                        P590B10-TDBQA2-TDP          => 0,
+                        P590B10-TDBQA3-TDP          => 0,
+                        CTMTDB01LQV-TKCSUAT-TDP     => 0,
+                        CTMTDB01LQV-TKCSDEV-TDP     => 0,
+                        CTMTDB01LQV-TKCSTRN-TDP     => 0,
+                        CTMTDB01LQV-TKCSTST-TDP     => 0,
+                        CTMTDB01LQV-TKCSSTG2-TDP    => 0,
+                        CTMTDB01LQV-TKCSDEV2-TDP    => 0,
+                        CTMTDB01LQV-TKCSSTG3-TDP    => 0,
+                        CADBBUSDR10-NBUSPRD1-TDP    => 0,
+                        CADBBUSDR10-TDBPRD3-TDP     => 0,
+                        CADBFAREDR21-EFTPRD1-TDP    => 0,
+                        CADBFAREDR21-WMTPRD1-TDP    => 0,
+                        CADBFAREDEV01-EFTQA1-TDP    => 0,
+                        CADBFAREQA1-SBFTQA1-TDP     => 0,
+                        CADBFAREQA1-EFTQA1-TDP      => 0,
+                        CADBFAREQA1-WMTQA1-TDP      => 0,
+                        CADBFAREQA1-SBFTQA3-TDP     => 0,
+                        CADBFAREDEV01-WMTPRD1-TDP   => 0,
+                        CADBFAREDEV01-SBFTPRD1-TDP  => 0,
+                        CADBFAREQA1-WMTQA3-TDP      => 0,
+                        CADBFAREQA1-EFTQA3-TDP      => 0,
+                        JGDBMEDICALDV               => 0,
+                        NCS-DNS-CTF                 => 0,
+                        CTNCSAPPPM1WDV              => 0,
+                        CTCOUNDBLB01WPV             => 0,
+                      );
+
+my %P520TSMJGB-inc  = (
+                        JGMTPDDBCAD1PV              => 0,
+                        JGMTPDDBCAD2PV              => 0,
+                        JGMTPDDBRMS1PV              => 0,
+                        JGMTPDDBRMS2PV              => 0,
+                        JGMTPDRDWCADPV              => 0,
+                        JGMTPDRDWRMSPV              => 0,
+                        RCTRESZYIPP                 => 0,
+                        JGAPPWWW1PP                 => 0,
+                        JGDBMEDICALPV               => 0,
+                      );
+
 my $isp-admin       = 'A028441';
-my @isp-servers     = <ISPLC01 JATSMPRD02 P520TSMJGB>;
+my @isp-servers     = <ISPLC01 ISPLC02 JATSMPRD02 P520TSMJGB CATSMDEV01>;
 
 my $outfile;
 given $ = run(<uname -n>, :out).out.slurp.chomp {
@@ -17,27 +85,82 @@ given $ = run(<uname -n>, :out).out.slurp.chomp {
 my @query-occupancy = <select NODE_NAME, sum ( REPORTING_MB ) / 1024 as GB from OCCUPANCY where STGPOOL_NAME in ( select STGPOOL_NAME from STGPOOLS where POOLTYPE='PRIMARY' ) group by NODE_NAME>;
 my @query-contacts  = <select NODE_NAME, CONTACT from NODES>;
 my %data;
+my %BU2GB;
 
 sub MAIN (
 #   Str:D   :$isp-server,                           #= ISP server name
 #   Str:D   :$isp-admin,                            #= ISP server admin
 ) {
+
+################################################################################
+###     Gather data from all sources                                         ###
+################################################################################
+
     for @isp-servers -> $isp-server {
         my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server);
         my @occupancy   = $dsmadmc.execute(@query-occupancy);
-#ddt @occupancy;
         for @occupancy -> $rcd {
             next unless $rcd<NODE_NAME>;
+            if $isp-server eq 'ISPLC02' {
+                next unless %ISPLC02-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'JATSMPRD02' {
+                next unless %JATSMPRD02-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'P520TSMJGB' {
+                next unless %P520TSMJGB-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'CATSMDEV01' {
+                next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
+            }
             %data{$isp-server}{$rcd<NODE_NAME>}<GB> = $rcd<GB>;
         }
         my @contacts    = $dsmadmc.execute(@query-contacts);
-#ddt @contacts;
         for @contacts -> $rcd {
+            if $isp-server eq 'ISPLC02' {
+                next unless %ISPLC02-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'JATSMPRD02' {
+                next unless %JATSMPRD02-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'P520TSMJGB' {
+                next unless %P520TSMJGB-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'CATSMDEV01' {
+                next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
+            }
             %data{$isp-server}{$rcd<NODE_NAME>}<BU> = $rcd<CONTACT>.subst(/^.*';'/);
         }
     }
-ddt %data;
+
+################################################################################
+###     Output Excel                                                         ###
+################################################################################
+
+#   for %data.keys.sort -> $isp-server {
+#       printf "\n%-40s%-70s%-20s%s\n", 'NODE NAME', 'BUSINESS UNIT', 'GB', $isp-server;
+#       printf "%-40s%-70s%s\n", '-' x 'NODE NAME'.chars, '-' x 'BUSINESS UNIT'.chars, '-' x 'GB'.chars;
+#       for %data{$isp-server}.keys.sort -> $node-name {
+#           next unless %data{$isp-server}{$node-name}<BU> && %data{$isp-server}{$node-name}<GB>;
+#           printf "%-40s%-70s%s\n", $node-name, %data{$isp-server}{$node-name}<BU>, %data{$isp-server}{$node-name}<GB>;
+#       }
+#   }
+
+    for %data.keys.sort -> $isp-server {
+        for %data{$isp-server}.keys.sort -> $node-name {
+            next unless %data{$isp-server}{$node-name}<BU> && %data{$isp-server}{$node-name}<GB>;
+            %BU2GB{%data{$isp-server}{$node-name}<BU>} += %data{$isp-server}{$node-name}<GB>;
+        }
+    }
+#ddt %BU2GB;
+    my @records = %BU2GB.keys.sort;
+
+    printf "%-20s%s\n", 'BUSINESS UNIT', 'GB';
+    loop (my $i = 0; $i < @records.elems; $i++) {
+        printf "%-20s%.2f\n", @records[$i], +%BU2GB{@records[$i]};
+    }
 }
+
 
 =finish
 
