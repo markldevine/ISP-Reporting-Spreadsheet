@@ -1,18 +1,58 @@
 #!/usr/bin/env raku
 
 use Spreadsheet::XLSX;
+use ISP::dsmadmc;
+use Data::Dump::Tree;
 
-my $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/foo.xlsx';
+my $isp-admin       = 'A028441';
+my @isp-servers     = <ISPLC01 JATSMPRD02 P520TSMJGB>;
+
+my $outfile;
+given $ = run(<uname -n>, :out).out.slurp.chomp {
+    when 'L-707970' { $outfile = '/mnt/c/Users/E028441/Downloads/IBM/ISP/Reporting/foo.xlsx';   }
+    when 'W-608863' { $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/foo.xlsx';                 }
+    default         { die;                                                                      }
+}
+
+my @query-occupancy = <select NODE_NAME, sum ( REPORTING_MB ) / 1024 as GB from OCCUPANCY where STGPOOL_NAME in ( select STGPOOL_NAME from STGPOOLS where POOLTYPE='PRIMARY' ) group by NODE_NAME>;
+my @query-contacts  = <select NODE_NAME, CONTACT from NODES>;
+my %data;
 
 sub MAIN (
-    Str:D   :$isp-server,                           #= ISP server name
-    Str:D   :$isp-admin,                            #= ISP server admin
+#   Str:D   :$isp-server,                           #= ISP server name
+#   Str:D   :$isp-admin,                            #= ISP server admin
 ) {
+    for @isp-servers -> $isp-server {
+        my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server);
+        my @occupancy   = $dsmadmc.execute(@query-occupancy);
+#ddt @occupancy;
+        for @occupancy -> $rcd {
+            next unless $rcd<NODE_NAME>;
+            %data{$isp-server}{$rcd<NODE_NAME>}<GB> = $rcd<GB>;
+        }
+        my @contacts    = $dsmadmc.execute(@query-contacts);
+#ddt @contacts;
+        for @contacts -> $rcd {
+            %data{$isp-server}{$rcd<NODE_NAME>}<BU> = $rcd<CONTACT>.subst(/^.*';'/);
+        }
+    }
+ddt %data;
+}
+
+=finish
+
+{3} @0
+    ISPLC01 => {223} @1
+        AIXTEST => {2} @2
+            BU => DCI_Unix.Str
+            GB => 74.56.Str
+
 
 # Create a new workbook and add some worksheets to it.
 my $workbook = Spreadsheet::XLSX.new;
-my $sheet-a = $workbook.create-worksheet('Ingredients');
-my $sheet-b = $workbook.create-worksheet('Matching Drinks');
+my $sheet;
+for %data.keys -> $isp-server {
+    $sheet = $workbook.create-worksheet($isp-server);
 
 # Put some data into a worksheet and style it. This is how the model
 # actually works (useful if you want to add styles later).
@@ -25,6 +65,7 @@ $sheet-a.cells[1;1] = Spreadsheet::XLSX::Cell::Number.new(value => 6);
 $sheet-a.cells[1;1].style.number-format = '#,###';
 
 # However, there is a convenience form too.
+
 $sheet-b.set(0, 0, 'Ingredient', :bold);
 $sheet-b.set(0, 1, 'Quantity', :bold);
 $sheet-b.set(1, 0, 'Cheese Slices');
