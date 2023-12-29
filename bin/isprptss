@@ -84,17 +84,16 @@ given $ = run(<uname -n>, :out).out.slurp.chomp {
 
 my @query-occupancy = <select NODE_NAME, sum ( REPORTING_MB ) / 1024 as GB from OCCUPANCY where STGPOOL_NAME in ( select STGPOOL_NAME from STGPOOLS where POOLTYPE='PRIMARY' ) group by NODE_NAME>;
 my @query-contacts  = <select NODE_NAME, CONTACT from NODES>;
-my %data;
-my %BU2GB;
 
-sub MAIN (
-#   Str:D   :$isp-server,                           #= ISP server name
-#   Str:D   :$isp-admin,                            #= ISP server admin
-) {
+sub byGB (Spreadsheet::XLSX:D $workbook) {
 
 ################################################################################
 ###     Gather data from all sources                                         ###
 ################################################################################
+
+    my %data;
+    my %BU2GB;
+    my %NODE2GB;
 
     for @isp-servers -> $isp-server {
         my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server);
@@ -114,6 +113,7 @@ sub MAIN (
                 next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
             }
             %data{$isp-server}{$rcd<NODE_NAME>}<GB> = $rcd<GB>;
+            %NODE2GB{$rcd<NODE_NAME>} += $rcd<GB>;
         }
         my @contacts    = $dsmadmc.execute(@query-contacts);
         for @contacts -> $rcd {
@@ -133,12 +133,12 @@ sub MAIN (
         }
     }
 
+ddt %NODE2GB;
+die;
+
 ################################################################################
 ###     Output Excel                                                         ###
 ################################################################################
-
-    my $workbook    = Spreadsheet::XLSX.new;
-    my $sheet;
 
     for %data.keys.sort -> $isp-server {
         for %data{$isp-server}.keys.sort -> $node-name {
@@ -146,22 +146,42 @@ sub MAIN (
             %BU2GB{%data{$isp-server}{$node-name}<BU>} += %data{$isp-server}{$node-name}<GB>;
         }
     }
-#ddt %BU2GB;
-    my @records     = %BU2GB.keys.sort;
+    my @bu2gb                       = %BU2GB.keys.sort;
 
-    $sheet = $workbook.create-worksheet('By BU');
-    $sheet.cells[0;0] = Spreadsheet::XLSX::Cell::Text.new(value => 'BUSINESS UNIT');
-    $sheet.cells[0;0].style.bold = True;
-    $sheet.cells[0;1] = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
-    $sheet.cells[0;1].style.bold = True;
-    printf "%-20s%s\n", 'BUSINESS UNIT', 'GB';
-    loop (my $i = 0; $i < @records.elems; $i++) {
-        printf "%-20s%.2f\n", @records[$i], +%BU2GB{@records[$i]};
-        $sheet.cells[$i+1;0] = Spreadsheet::XLSX::Cell::Text.new(value => @records[$i]);
-        $sheet.cells[$i+1;1] = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@records[$i]}.Str);
+    my $sheet;
+    $sheet                          = $workbook.create-worksheet('By NODE');
+    $sheet.cells[0;0]               = Spreadsheet::XLSX::Cell::Text.new(value => 'NODE');
+    $sheet.cells[0;0].style.bold    = True;
+    $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
+    $sheet.cells[0;1].style.bold    = True;
+    printf "%-20s%s\n", 'NODE', 'GB';
+    loop (my $i = 0; $i < @bu2gb.elems; $i++) {
+        printf "%-20s%.2f\n", @bu2gb[$i], +%BU2GB{@bu2gb[$i]};
+        $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @bu2gb[$i]);
+        $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@bu2gb[$i]}.Str);
 #       $sheet.cells[$i+1;1].style.number-format = '#,###';
     }
 
+    $sheet                          = $workbook.create-worksheet('By BU');
+    $sheet.cells[0;0]               = Spreadsheet::XLSX::Cell::Text.new(value => 'BUSINESS UNIT');
+    $sheet.cells[0;0].style.bold    = True;
+    $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
+    $sheet.cells[0;1].style.bold    = True;
+    printf "%-20s%s\n", 'BUSINESS UNIT', 'GB';
+    loop (my $i = 0; $i < @bu2gb.elems; $i++) {
+        printf "%-20s%.2f\n", @bu2gb[$i], +%BU2GB{@bu2gb[$i]};
+        $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @bu2gb[$i]);
+        $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@bu2gb[$i]}.Str);
+#       $sheet.cells[$i+1;1].style.number-format = '#,###';
+    }
+}
+
+sub MAIN (
+#   Str:D   :$isp-server,                           #= ISP server name
+#   Str:D   :$isp-admin,                            #= ISP server admin
+) {
+    my $workbook    = Spreadsheet::XLSX.new;
+    byGB($workbook);
     $workbook.save($outfile);
 }
 
