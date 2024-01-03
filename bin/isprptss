@@ -78,7 +78,7 @@ my @isp-servers     = <ISPLC01 ISPLC02 JATSMPRD02 P520TSMJGB CATSMDEV01>;
 my $outfile;
 given $ = run(<uname -n>, :out).out.slurp.chomp {
     when 'L-707970' { $outfile = '/mnt/c/Users/E028441/Downloads/IBM/ISP/Reporting/ISP Reporting.xlsx';   }
-    when 'W-608863' { $outfile = '/mnt/d/Downloads/IBM/ISP/Reporting/ISP Reporting.xlsx';                 }
+    when 'W-608863' { $outfile = '/mnt/d/Downloads/ISP/Reporting/ISP Reporting.xlsx';                 }
     default         { die;                                                                      }
 }
 
@@ -133,9 +133,6 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
         }
     }
 
-ddt %NODE2GB;
-die;
-
 ################################################################################
 ###     Output Excel                                                         ###
 ################################################################################
@@ -147,6 +144,7 @@ die;
         }
     }
     my @bu2gb                       = %BU2GB.keys.sort;
+    my @node2gb                     = %NODE2GB.keys.sort;
 
     my $sheet;
     $sheet                          = $workbook.create-worksheet('By NODE');
@@ -155,10 +153,10 @@ die;
     $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
     $sheet.cells[0;1].style.bold    = True;
     printf "%-20s%s\n", 'NODE', 'GB';
-    loop (my $i = 0; $i < @bu2gb.elems; $i++) {
-        printf "%-20s%.2f\n", @bu2gb[$i], +%BU2GB{@bu2gb[$i]};
-        $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @bu2gb[$i]);
-        $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@bu2gb[$i]}.Str);
+    loop (my $i = 0; $i < @node2gb.elems; $i++) {
+        printf "%-20s%.2f\n", @node2gb[$i], +%NODE2GB{@node2gb[$i]};
+        $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @node2gb[$i]);
+        $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %NODE2GB{@node2gb[$i]}.Str);
 #       $sheet.cells[$i+1;1].style.number-format = '#,###';
     }
 
@@ -168,7 +166,7 @@ die;
     $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
     $sheet.cells[0;1].style.bold    = True;
     printf "%-20s%s\n", 'BUSINESS UNIT', 'GB';
-    loop (my $i = 0; $i < @bu2gb.elems; $i++) {
+    loop ($i = 0; $i < @bu2gb.elems; $i++) {
         printf "%-20s%.2f\n", @bu2gb[$i], +%BU2GB{@bu2gb[$i]};
         $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @bu2gb[$i]);
         $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@bu2gb[$i]}.Str);
