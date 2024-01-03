@@ -84,6 +84,7 @@ given $ = run(<uname -n>, :out).out.slurp.chomp {
 
 my @query-occupancy = <select NODE_NAME, sum ( REPORTING_MB ) / 1024 as GB from OCCUPANCY where STGPOOL_NAME in ( select STGPOOL_NAME from STGPOOLS where POOLTYPE='PRIMARY' ) group by NODE_NAME>;
 my @query-contacts  = <select NODE_NAME, CONTACT from NODES>;
+my @query-bucg      = <select trim(char(DOMAIN_NAME))||':'||trim(char(CLASS_NAME)) as "DOMAIN_CLASS",RETEXTRA from BU_COPYGROUPS where SET_NAME='ACTIVE'>;
 
 sub byGB (Spreadsheet::XLSX:D $workbook) {
 
@@ -94,6 +95,7 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
     my %data;
     my %BU2GB;
     my %NODE2GB;
+    my %BUCG2RET;
 
     for @isp-servers -> $isp-server {
         my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server);
@@ -130,6 +132,24 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
                 next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
             }
             %data{$isp-server}{$rcd<NODE_NAME>}<BU> = $rcd<CONTACT>.subst(/^.*';'/);
+        }
+        my @bucg        = $dsmadmc.execute(@query-bucg);
+ddt @bucg;
+die;
+        for @bucg -> $rcd {
+            if $isp-server eq 'ISPLC02' {
+                next unless %ISPLC02-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'JATSMPRD02' {
+                next unless %JATSMPRD02-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'P520TSMJGB' {
+                next unless %P520TSMJGB-inc{$rcd<NODE_NAME>}:exists;
+            }
+            if $isp-server eq 'CATSMDEV01' {
+                next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
+            }
+#           %BUCG2RET
         }
     }
 
