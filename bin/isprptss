@@ -100,7 +100,7 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
     for @isp-servers -> $isp-server {
         my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server);
         my @occupancy   = $dsmadmc.execute(@query-occupancy);
-        for @occupancy -> $rcd {
+        for @occupancy.sort -> $rcd {
             next unless $rcd<NODE_NAME>;
             if $isp-server eq 'ISPLC02' {
                 next unless %ISPLC02-inc{$rcd<NODE_NAME>}:exists;
@@ -114,11 +114,11 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
             if $isp-server eq 'CATSMDEV01' {
                 next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
             }
-            %data{$isp-server}{$rcd<NODE_NAME>}<GB> = $rcd<GB>;
-            %NODE2GB{$rcd<NODE_NAME>} += $rcd<GB>;
+            %data{$isp-server}{$rcd<NODE_NAME>}<GB> = $rcd<GB>.trim;
+            %NODE2GB{$rcd<NODE_NAME>} += $rcd<GB>.trim;
         }
         my @contacts    = $dsmadmc.execute(@query-contacts);
-        for @contacts -> $rcd {
+        for @contacts.sort -> $rcd {
             if $isp-server eq 'ISPLC02' {
                 next unless %ISPLC02-inc{$rcd<NODE_NAME>}:exists;
             }
@@ -131,25 +131,13 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
             if $isp-server eq 'CATSMDEV01' {
                 next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
             }
-            %data{$isp-server}{$rcd<NODE_NAME>}<BU> = $rcd<CONTACT>.subst(/^.*';'/);
+            %data{$isp-server}{$rcd<NODE_NAME>}<BU> = $rcd<CONTACT>.subst(/^.*';'/).trim;
         }
-        my @bucg        = $dsmadmc.execute(@query-bucg);
-ddt @bucg;
-die;
-        for @bucg -> $rcd {
-            if $isp-server eq 'ISPLC02' {
-                next unless %ISPLC02-inc{$rcd<NODE_NAME>}:exists;
+        if $isp-server eq 'ISPLC01' {
+            my @bucg = $dsmadmc.execute(@query-bucg);
+            for @bucg.sort -> $rcd {
+                %BUCG2RET{$rcd<DOMAIN_CLASS>} = $rcd<RETEXTRA>.trim;
             }
-            if $isp-server eq 'JATSMPRD02' {
-                next unless %JATSMPRD02-inc{$rcd<NODE_NAME>}:exists;
-            }
-            if $isp-server eq 'P520TSMJGB' {
-                next unless %P520TSMJGB-inc{$rcd<NODE_NAME>}:exists;
-            }
-            if $isp-server eq 'CATSMDEV01' {
-                next unless %CATSMDEV01-inc{$rcd<NODE_NAME>}:exists;
-            }
-#           %BUCG2RET
         }
     }
 
@@ -165,6 +153,11 @@ die;
     }
     my @bu2gb                       = %BU2GB.keys.sort;
     my @node2gb                     = %NODE2GB.keys.sort;
+    my @dc2ret                      = %BUCG2RET.keys.sort;
+
+#ddt %BUCG2RET;
+#ddt @dc2ret;
+#die;
 
     my $sheet;
     $sheet                          = $workbook.create-worksheet('By NODE');
@@ -172,7 +165,7 @@ die;
     $sheet.cells[0;0].style.bold    = True;
     $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
     $sheet.cells[0;1].style.bold    = True;
-    printf "%-20s%s\n", 'NODE', 'GB';
+    printf "\n%-20s%s\n", 'NODE', 'GB';
     loop (my $i = 0; $i < @node2gb.elems; $i++) {
         printf "%-20s%.2f\n", @node2gb[$i], +%NODE2GB{@node2gb[$i]};
         $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @node2gb[$i]);
@@ -185,12 +178,23 @@ die;
     $sheet.cells[0;0].style.bold    = True;
     $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'GB');
     $sheet.cells[0;1].style.bold    = True;
-    printf "%-20s%s\n", 'BUSINESS UNIT', 'GB';
+    printf "\n%-20s%s\n", 'BUSINESS UNIT', 'GB';
     loop ($i = 0; $i < @bu2gb.elems; $i++) {
         printf "%-20s%.2f\n", @bu2gb[$i], +%BU2GB{@bu2gb[$i]};
         $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @bu2gb[$i]);
         $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %BU2GB{@bu2gb[$i]}.Str);
-#       $sheet.cells[$i+1;1].style.number-format = '#,###';
+    }
+
+    $sheet                          = $workbook.create-worksheet('Retentions');
+    $sheet.cells[0;0]               = Spreadsheet::XLSX::Cell::Text.new(value => 'Domain:Class');
+    $sheet.cells[0;0].style.bold    = True;
+    $sheet.cells[0;1]               = Spreadsheet::XLSX::Cell::Text.new(value => 'Days Retained (del/mod)');
+    $sheet.cells[0;1].style.bold    = True;
+    printf "\n%-20s%s\n", 'Domain:Class', 'Days Retained (del/mod)';
+    loop ($i = 0; $i < @dc2ret.elems; $i++) {
+        printf "%-20s%2d\n", @dc2ret[$i], +%BUCG2RET{@dc2ret[$i]};
+        $sheet.cells[$i+1;0]        = Spreadsheet::XLSX::Cell::Text.new(value => @dc2ret[$i]);
+        $sheet.cells[$i+1;1]        = Spreadsheet::XLSX::Cell::Text.new(value => %BUCG2RET{@dc2ret[$i]}.Str);
     }
 }
 
