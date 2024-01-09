@@ -101,7 +101,7 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
     my %NODE2SCHED;
 
     for @isp-servers -> $isp-server {
-        my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server);
+        my $dsmadmc     = ISP::dsmadmc.new(:$isp-admin, :$isp-server, :$cache);
         my @occupancy   = $dsmadmc.execute(@query-occupancy);
         for @occupancy.sort -> $rcd {
             next unless $rcd<NODE_NAME>;
@@ -244,7 +244,7 @@ sub byGB (Spreadsheet::XLSX:D $workbook) {
     }
 }
 
-sub MAIN () {
+sub MAIN (Bool :$cache) {
     my $workbook    = Spreadsheet::XLSX.new;
     byGB($workbook);
     $workbook.save($outfile);
